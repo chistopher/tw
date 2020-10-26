@@ -21,5 +21,12 @@ if (CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     endif()
 endif()
 
-add_executable(main src/main.cpp)
+set(HEADER 
+    src/setstuff.h
+    src/graphstuff.h)
+
+set(SOURCES
+    src/graphstuff.cpp)
+
+add_executable(main src/main.cpp ${HEADER} ${SOURCES})
 

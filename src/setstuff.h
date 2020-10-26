@@ -16,6 +16,19 @@ bool isSubset(const NodeSet& a, const NodeSet& b) { // assumes sorted
 //∪
 NodeSet cup(const NodeSet& a, const NodeSet& b) {
     NodeSet res;
-    merge(begin(a), end(a), begin(b), end(b), std::back_inserter(res));
+    set_union(begin(a), end(a), begin(b), end(b), std::back_inserter(res));
+    return res;
+}
+
+// intersection (∩)
+NodeSet intersection(const NodeSet& a, const NodeSet& b) {
+    NodeSet res;
+    set_intersection(begin(a), end(a), begin(b), end(b), std::back_inserter(res));
+    return res;
+}
+
+NodeSet setminus(const NodeSet& a, const NodeSet& b) {
+    NodeSet res;
+    set_difference(begin(a), end(a), begin(b), end(b), back_inserter(res));
     return res;
 }
