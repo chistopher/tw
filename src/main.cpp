@@ -1,6 +1,8 @@
 
 #include <bits/stdc++.h>
 
+#include "setstuff.h"
+
 using namespace std;
 
 using Node = int;
@@ -64,6 +66,7 @@ int main() {
 
     Graph g;
     int n = (int)size(g.adj);
+    unsigned int targetWidth = 2;
 
 
     vector<PMC> buildablepmcs; // for debug; they may be feasible now?
@@ -106,6 +109,8 @@ int main() {
         auto currentI = pendingIBlocks.front();
         pendingIBlocks.pop();
 
+        vector<OBlock> newOblocks;
+        
         for(const OBlock& oblock : oblocks) {
             /* 
                 if (!currentI ⊂ oblock)
@@ -118,12 +123,42 @@ int main() {
                     --> yay (maybe new) oblock
                 }
             */
+
+            if(!isSubset(currentI.nodes, oblock.nodes))
+                continue;
+
+            auto K = cup(
+                g.neighs(currentI.nodes),
+                g.neighs(oblock.nodes)
+            );
+        
+            if(size(K) <= targetWidth+1 && isPMC(K)) {
+                // --> yay (maybe new) pmc
+                processPMC({K});
+                
+            } else if (size(K) <= targetWidth && fullComponents(K).size()==1) {
+                // --> yay (maybe new) oblock found
+                OBlock maybeNewOblock{fullComponents(K).front()};
+                if(oblocks.count(maybeNewOblock)==0) // vielleicht ist er auch immer neu?
+                    newOblocks.push_back(maybeNewOblock);
+            }
+
+        
         }
 
         /*
         search outbound component A with N(A) == N(currentI)
         --> yay (maybe new) oblock
+        */
+        smallest = infty
+        outBound = None
+        for fullComp fullComponents(g.neighs(currentI)) {
+            if minNode(fullComp) < smallest:
+                outBound = fullComponents
+                smallest = minNode(fullComp)
+        }
 
+        /*
         for (Oblock oblock : newOblocks) {
             for (Node v: neighs(oblock)) {
                 K = neighs(oblock) ∪ (neighs(v) ∩ oblock)
