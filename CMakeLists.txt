@@ -1,6 +1,9 @@
 
 project(CPT)
 
+find_package(girgs REQUIRED)
+find_package(OpenMP REQUIRED)
+
 # CMake version
 cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 
@@ -29,4 +32,5 @@ set(SOURCES
     src/graphstuff.cpp)
 
 add_executable(main src/main.cpp ${HEADER} ${SOURCES})
-
+target_link_libraries(main girgs)
+target_link_libraries(main OpenMP::OpenMP_CXX)

@@ -123,3 +123,46 @@ vector<Component> Graph::fullComponents(const NodeSet& separator) const {
     }
     return res;
 }
+
+Graph Graph::largeCC() const {
+    auto comp = compMap(*this, {});
+    auto numComps = *max_element(begin(comp), end(comp));
+    vector<int> compSize(numComps, 0);
+    for(auto c : comp) compSize[c-1]++;
+    auto largestComp = max_element(begin(compSize), end(compSize)) - begin(compSize) + 1;
+    map<int,int> idMap;
+    for(auto i=0u; i<size(adj); ++i)
+        if(comp[i]==largestComp)
+            idMap[i] = (int)size(idMap);
+    assert((int)size(idMap) == compSize[largestComp-1]);
+
+    Graph res;
+    res.adj.resize(size(idMap));
+    for(auto i=0u; i<size(adj); ++i) {
+        if(comp[i]!=largestComp)
+            continue;
+        for(int nei : adj[i]) {
+            assert(comp[nei]==largestComp); 
+            res.adj[idMap[i]].push_back(idMap[nei]);
+        }
+    }
+
+    return res;
+}
+
+bool Graph::isConnected(const NodeSet& nodes) const {
+    vector<bool> visited(size(adj),true);
+    for(auto v : nodes) visited[v] = false;
+    queue<int> q{{nodes.front()}};
+    visited[nodes.front()] = true;
+    while(size(q)) {
+        int v = q.front(); q.pop();
+        for(auto nei : adj[v])
+            if(!visited[nei]) 
+                visited[nei] = true, q.push(nei);
+    }
+    for(auto v : nodes)
+        if(!visited[v]) 
+            return false;
+    return true;
+}

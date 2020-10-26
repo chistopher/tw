@@ -1,5 +1,12 @@
 
-#include <bits/stdc++.h>
+#include <iostream>
+#include <set>
+#include <cassert>
+#include <queue>
+#include <random>
+
+#include <omp.h>
+#include <girgs/Generator.h>
 
 #include "setstuff.h"
 #include "graphstuff.h"
@@ -29,6 +36,7 @@ struct PMC {
                 if(size(temp)>size(res)) res = temp;
             }
         }
+        assert(isSubset(res, nodes));
         return res;
     };
 
@@ -36,7 +44,7 @@ struct PMC {
         vector<Component> res;
         auto olet = outlet();
         for (const auto& comp: g.components(nodes)) {
-            if(!isSubset(comp.nodes,olet))
+            if(!isSubset(g.neighs(comp.nodes),olet))
                 res.push_back(comp);
         }
         return res;
@@ -65,135 +73,173 @@ NodeSet crib(const PMC& omega){
 }
 
 
-int main() {
-
+auto generateGraph(int n, int deg, double T, double ple) {
+    int dimension = 2;
+    int seed = 1337 + n + deg;
+    double alpha = T<=0 ? numeric_limits<double>::infinity() : 1/T;
+    bool parallel = false;
+    auto positions = girgs::generatePositions(n, dimension, seed+1, parallel);
+    auto weights = girgs::generateWeights(n, ple, seed+2, parallel);
+    girgs::scaleWeights(weights, deg, dimension, alpha);
+    auto edges = girgs::generateEdges(weights, positions, alpha, seed+3);
     Graph g;
+    g.adj.resize(n);
+    for(auto [a,b] : edges) {
+        g.adj[a].push_back(b);
+        g.adj[b].push_back(a);
+    }
+    g = g.largeCC();
+    for(auto& neis : g.adj)
+        sort(begin(neis), end(neis));
+    return g;
+}
+
+
+int main() {
+    omp_set_num_threads(1);
+
+    Graph g = generateGraph(100, 6, 0.0, 2.7);
     int n = (int)size(g.adj);
-    unsigned int targetWidth = 2;
+    cout << "generated graph and LCC is " << n << endl;
 
+    for(auto targetWidth=1u; targetWidth<size(g.adj); ++targetWidth) {
+        cout << "trying to find decomp with width " << targetWidth << endl;
 
-    vector<PMC> buildablepmcs; // for debug; they may be feasible now?
+        vector<PMC> buildablepmcs; // for debug; they may be feasible now?
 
-    set<IBlock> iblocks;
-    set<OBlock> oblocks;
-    vector<PMC> pmcs;
+        set<IBlock> iblocks;
+        set<OBlock> oblocks;
+        vector<PMC> pmcs;
 
-    queue<IBlock> pendingIBlocks;
+        queue<IBlock> pendingIBlocks;
 
-    auto processPMC = [&](const PMC& pmc) {
-        if(!isFeasible(pmc, iblocks)) {
-            buildablepmcs.push_back(pmc);
-            return;
-        }
-        if(size(pmc.outlet())==0) {
-            cout << "YAY!" << endl;
-            exit(0);
-        }
-        pmcs.push_back(pmc);
+        auto processPMC = [&](const PMC& pmc) {
+            if(size(pmc.nodes)>targetWidth+1) {
+                cout << "this PMC is too large" << endl;
+                return;
+            }
+            if(!isFeasible(pmc, iblocks)) {
+                buildablepmcs.push_back(pmc);
+                return;
+            }
+            if(size(pmc.outlet())==0) {
+                cout << "YAY!" << endl;
+                exit(0);
+            }
+            pmcs.push_back(pmc);
 
-        IBlock maybeNewIblock = IBlock{crib(pmc)};
-        if(!iblocks.count(maybeNewIblock)) {
-            iblocks.insert(maybeNewIblock);
-            pendingIBlocks.push(move(maybeNewIblock));
-        }
-            
-    };
-
-    // find all case 1 buildable PMCs (N[v])
-    for(int i=0; i<n; ++i) {
-        auto ni = g.cneighs(i);
-        if(isPMC(g,ni)) {
-            PMC foundPMC(ni,g);
-            processPMC(foundPMC);
-        }
-    }
-
-    while (!pendingIBlocks.empty()) {
-        auto currentI = pendingIBlocks.front();
-        pendingIBlocks.pop();
-
-        vector<OBlock> newOblocks;
-        
-        // case 2 PMCs
-        for(const OBlock& oblock : oblocks) {
-            /* 
-                if (!currentI ⊂ oblock)
-                    continue
-                K = N(C) ∪ N(B)
-                if (|K| <= k+1 && isPMC(k)) {
-                    --> yay (maybe new) pmc
-                } else if (|K| <= k && fullComponents(K).size()==1) {
-                    maybeNewOblock = fullComponents(K)[0]
-                    --> yay (maybe new) oblock
+            IBlock maybeNewIblock = IBlock{crib(pmc)};
+            if(!iblocks.count(maybeNewIblock)) {
+                if(!g.isConnected(maybeNewIblock.nodes))
+                    cout << "crib is not connection so no IBlock?" << endl;
+                else {
+                    iblocks.insert(maybeNewIblock);
+                    pendingIBlocks.push(move(maybeNewIblock));
                 }
-            */
-
-            if(!isSubset(currentI.nodes, oblock.nodes))
-                continue;
-
-            auto K = cup(
-                g.neighs(currentI.nodes),
-                g.neighs(oblock.nodes)
-            );
-        
-            if(size(K) <= targetWidth+1 && isPMC(g,K)) {
-                // --> yay (maybe new) pmc
-                processPMC({K,g});
+            }
                 
-            } else if (size(K) <= targetWidth && g.fullComponents(K).size()==1) {
-                // --> yay (maybe new) oblock found
-                OBlock maybeNewOblock{g.fullComponents(K).front()};
-                if(oblocks.count(maybeNewOblock)==0) // vielleicht ist er auch immer neu?
-                    newOblocks.push_back(maybeNewOblock);
-                else
-                    cout << "OBLOCK is not new. Our question was answered" << endl;
-            }
+        };
 
-        
+        // find all case 1 buildable PMCs (N[v])
+        for(int i=0; i<n; ++i) {
+            auto ni = g.cneighs(i);
+            if(size(ni)<=targetWidth+1 && isPMC(g,ni)) {
+                PMC foundPMC(ni,g);
+                processPMC(foundPMC);
+            }
         }
 
-        /*
-        search outbound component A with N(A) == N(currentI)
-        --> yay (maybe new) oblock
-         */
-    
-        auto otherComps = g.fullComponents(g.neighs(currentI.nodes));
-        assert(otherComps.size()>1);
-        auto otherOBlock = *min_element(begin(otherComps), end(otherComps), [](const Component& a, const Component& b) { 
-            return a.nodes.front() < b.nodes.front();
-        });
-        assert(otherOBlock < currentI);
-        if(oblocks.count({otherOBlock})==0)
-            newOblocks.push_back({otherOBlock});
-        else
-            cout << "apparently this can be a known oblock..." << endl;
+        while (!pendingIBlocks.empty()) {
+            auto currentI = pendingIBlocks.front();
+            pendingIBlocks.pop();
 
-        // check if we can find oblocks multiple times
-        if(size(newOblocks)>set(newOblocks.begin(), newOblocks.end()).size())
-            cout << "we found some oblock multiple times" << endl;
-        
+            vector<OBlock> newOblocks;
+            
+            // case 2 PMCs
+            for(const OBlock& oblock : oblocks) {
+                /* 
+                    if (!currentI ⊂ oblock)
+                        continue
+                    K = N(C) ∪ N(B)
+                    if (|K| <= k+1 && isPMC(k)) {
+                        --> yay (maybe new) pmc
+                    } else if (|K| <= k && fullComponents(K).size()==1) {
+                        maybeNewOblock = fullComponents(K)[0]
+                        --> yay (maybe new) oblock
+                    }
+                */
 
-        // type 3 PMCs
-        // Subsequently for each O-block (N (A), A) that had already been discovered before 
-        // processing the current I-block and for each v ∈ N (A),
-        // all PMCs K with |K | ≤ k + 1 of the form K = N (A) ∪ (N (v) ∩ A) are registered.
-        for (const OBlock& oblock : newOblocks) {
-            auto neigh = g.neighs(oblock.nodes);
-            for (Node v: neigh) {
-                auto K = cup(neigh, intersection(oblock.nodes, g.neighs(v)));
-                if (size(K) <= targetWidth+1 && isPMC(g,K)) {
+                if(!isSubset(currentI.nodes, oblock.nodes))
+                    continue;
+
+                auto K = cup(
+                    g.neighs(currentI.nodes),
+                    g.neighs(oblock.nodes)
+                );
+            
+                if(size(K) <= targetWidth+1 && isPMC(g,K)) {
+                    // --> yay (maybe new) pmc
                     processPMC({K,g});
+                    
+                } else if (size(K) <= targetWidth && g.fullComponents(K).size()==1) {
+                    // --> yay (maybe new) oblock found
+                    OBlock maybeNewOblock{g.fullComponents(K).front()};
+                    if(oblocks.count(maybeNewOblock)==0) // vielleicht ist er auch immer neu?
+                        newOblocks.push_back(maybeNewOblock);
+                    else
+                        cout << "OBLOCK is not new. Our question was answered" << endl;
+                }
+
+            
+            }
+
+            /*
+            search outbound component A with N(A) == N(currentI)
+            --> yay (maybe new) oblock
+            */
+        
+            auto otherComps = g.fullComponents(g.neighs(currentI.nodes));
+            // assert(otherComps.size()>1);
+            if(otherComps.size()==1)
+                auto awdaw = g.fullComponents(g.neighs(currentI.nodes)); // for debug
+            auto otherOBlock = *min_element(begin(otherComps), end(otherComps), [](const Component& a, const Component& b) { 
+                return a.nodes.front() < b.nodes.front();
+            });
+            assert(otherOBlock < currentI);
+            if(oblocks.count({otherOBlock})==0)
+                newOblocks.push_back({otherOBlock});
+            else
+                cout << "apparently this can be a known oblock..." << endl;
+
+            // check if we can find oblocks multiple times
+            if(size(newOblocks)>set(newOblocks.begin(), newOblocks.end()).size())
+                cout << "we found some oblock multiple times" << endl;
+            
+
+            // type 3 PMCs
+            // Subsequently for each O-block (N (A), A) that had already been discovered before 
+            // processing the current I-block and for each v ∈ N (A),
+            // all PMCs K with |K | ≤ k + 1 of the form K = N (A) ∪ (N (v) ∩ A) are registered.
+            for (const OBlock& oblock : newOblocks) {
+                auto neigh = g.neighs(oblock.nodes);
+                for (Node v: neigh) {
+                    auto K = cup(neigh, intersection(oblock.nodes, g.neighs(v)));
+                    if (size(K) <= targetWidth+1 && isPMC(g,K)) {
+                        processPMC({K,g});
+                    }
                 }
             }
+
+            for(const auto& oblock : newOblocks) {
+                //assert(oblocks.count(oblock)==0); // TODO uncomment
+                oblocks.insert(oblock);
+            }
         }
 
-        for(const auto& oblock : newOblocks) {
-            assert(oblocks.count(oblock)==0);
-            oblocks.insert(oblock);
-        }
+        // TODO check if we missed some buildable PMCs that only got feasible later
+
+        cout << "failed to find decomp with width " << targetWidth << endl;
     }
-
-    // TODO check if we missed some buildable PMCs that only got feasible later
 
     return 0;
 }

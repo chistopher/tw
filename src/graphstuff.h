@@ -25,5 +25,8 @@ struct Graph {
 
     std::vector<Component> components(const NodeSet&) const;
     std::vector<Component> fullComponents(const NodeSet&) const;
+
+    Graph largeCC() const;
+    bool isConnected(const NodeSet&) const;
 };
 
