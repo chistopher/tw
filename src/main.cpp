@@ -98,7 +98,7 @@ auto generateGraph(int n, int deg, double T, double ple) {
 int main() {
     omp_set_num_threads(1);
 
-    Graph g = generateGraph(100, 6, 0.0, 2.7);
+    Graph g = generateGraph(50, 6, 0.0, 2.7);
     int n = (int)size(g.adj);
     cout << "generated graph and LCC is " << n << endl;
 
@@ -130,12 +130,9 @@ int main() {
 
             IBlock maybeNewIblock = IBlock{crib(pmc)};
             if(!iblocks.count(maybeNewIblock)) {
-                if(!g.isConnected(maybeNewIblock.nodes))
-                    cout << "crib is not connection so no IBlock?" << endl;
-                else {
-                    iblocks.insert(maybeNewIblock);
-                    pendingIBlocks.push(move(maybeNewIblock));
-                }
+                assert(g.isConnected(maybeNewIblock.nodes));
+                iblocks.insert(maybeNewIblock);
+                pendingIBlocks.push(move(maybeNewIblock));
             }
                 
         };
@@ -186,8 +183,9 @@ int main() {
                     OBlock maybeNewOblock{g.fullComponents(K).front()};
                     if(oblocks.count(maybeNewOblock)==0) // vielleicht ist er auch immer neu?
                         newOblocks.push_back(maybeNewOblock);
-                    else
-                        cout << "OBLOCK is not new. Our question was answered" << endl;
+                    else {
+                        // cout << "OBLOCK is not new. Our question was answered" << endl;
+                    }
                 }
 
             
@@ -208,12 +206,15 @@ int main() {
             assert(otherOBlock < currentI);
             if(oblocks.count({otherOBlock})==0)
                 newOblocks.push_back({otherOBlock});
-            else
-                cout << "apparently this can be a known oblock..." << endl;
+            else {
+                // cout << "apparently this can be a known oblock..." << endl;
+            }
 
             // check if we can find oblocks multiple times
+            /*
             if(size(newOblocks)>set(newOblocks.begin(), newOblocks.end()).size())
                 cout << "we found some oblock multiple times" << endl;
+             */
             
 
             // type 3 PMCs
@@ -234,10 +235,12 @@ int main() {
                 //assert(oblocks.count(oblock)==0); // TODO uncomment
                 oblocks.insert(oblock);
             }
+
+            cout << "# pmcs\t" << size(pmcs) << "\tiblocks\t" << size(iblocks) << "\toblocks\t" << size(oblocks) << "\r";
         }
 
         // TODO check if we missed some buildable PMCs that only got feasible later
-
+        cout << endl;
         cout << "failed to find decomp with width " << targetWidth << endl;
     }
 

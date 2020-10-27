@@ -9,7 +9,7 @@
 using namespace std;
 
 bool Graph::adjacent(Node a, Node b) const {
-    return lower_bound(begin(adj[a]), end(adj[a]), b) != end(adj[a]);
+    return binary_search(begin(adj[a]), end(adj[a]), b); // TODO benchmark if find is faster
 }
 
 NodeSet Graph::neighs(int i) const {
@@ -60,6 +60,8 @@ bool Graph::isCliquish(const NodeSet& nodes) const {
             for (Node b: comp_neighs) {
                 if (a >= b)
                     continue;
+                assert(idx.find(a) != idx.end());
+                assert(idx.find(b) != idx.end());
                 node_adj[idx[a]][idx[b]] = 1;
             }
         }
