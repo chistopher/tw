@@ -94,11 +94,29 @@ auto generateGraph(int n, int deg, double T, double ple) {
     return g;
 }
 
+auto parsePaceGraph() {
+    string s; cin>>s>>s;
+    int n; cin>>n;
+    int m; cin>>m;
+    Graph g;
+    g.adj.resize(n);
+    for (int i=0; i<m; ++i) {
+        int v; cin>>v;
+        int w; cin>>w;
+        g.adj[v].push_back(w);
+        g.adj[w].push_back(v);
+    }
+    g = g.largeCC();
+    for(auto& neis : g.adj)
+        sort(begin(neis), end(neis));
+    return g;
+}
+
 
 int main() {
     omp_set_num_threads(1);
 
-    Graph g = generateGraph(50, 6, 0.0, 2.7);
+    Graph g = parsePaceGraph();//generateGraph(50, 6, 0.0, 2.7);
     int n = (int)size(g.adj);
     cout << "generated graph and LCC is " << n << endl;
 

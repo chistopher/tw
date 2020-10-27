@@ -31,6 +31,6 @@ set(HEADER
 set(SOURCES
     src/graphstuff.cpp)
 
-add_executable(main src/main.cpp ${HEADER} ${SOURCES})
-target_link_libraries(main girgs)
-target_link_libraries(main OpenMP::OpenMP_CXX)
+add_executable(runner ${HEADER} ${SOURCES} src/main.cpp)
+target_link_libraries(runner girgs::girgs)
+target_link_libraries(runner OpenMP::OpenMP_CXX)
